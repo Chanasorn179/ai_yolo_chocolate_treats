@@ -4,7 +4,7 @@ from ultralytics import YOLO
 
 def main():
     # โหลดโมเดลที่ผ่านการฝึก (Trained Model)
-    model = YOLO("runs/detect/train-v2/weights/best.pt")
+    model = YOLO("runs/detect/train-3/weights/best.pt")
 
     # เปิดใช้งานกล้องเว็บแคม
     # เลข 0 หมายถึงกล้องตัวแรกที่เชื่อมต่อกับคอมพิวเตอร์

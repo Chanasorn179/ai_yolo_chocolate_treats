@@ -28,10 +28,12 @@ All paths are relative to the repo root, so run the scripts from there.
 4. `python 04-test_video.py` predicts on `test_chocolate_treats_video.mp4`, then saves and shows the result.
 5. `python 05-test-camera.py` runs real-time webcam detection with OpenCV DirectShow at 1280x720 MJPG. Press `q` to quit.
 
-The inference scripts (03–05) hard-code the weights path `runs/detect/train-v2/weights/best.pt`. After a new training run, update that path in all three scripts.
+The inference scripts (03–05) hard-code the weights path `runs/detect/train-3/weights/best.pt`. After a new training run, update that path in all three scripts.
 
-The Ultralytics CLI works too, for example `yolo detect predict model=runs/detect/train-v2/weights/best.pt source=test.jpg conf=0.5`.
+The Ultralytics CLI works too, for example `yolo detect predict model=runs/detect/train-3/weights/best.pt source=test.jpg conf=0.5`.
 
 ## Current model
 
-`runs/detect/train-v2` (yolo26s, stopped early at epoch 185; `best.pt` is from epoch 125) scores P 0.985, R 0.959, mAP50 0.991 and mAP50-95 0.605 on the 29-image val split. The older `train-2` (yolo26n) is kept for comparison: mAP50 0.972, mAP50-95 0.558. The val images are frames from the same video as the train images, so these numbers are optimistic.
+`runs/detect/train-3` (yolo26s, stopped early at epoch 148; `best.pt` is from epoch 88) was trained on 228 images: 147 frames from `train_chocolate_treats.mp4` plus 81 close-up, multi-angle frames (`bonobon_*.jpg`) from `bon o bon.mp4.MOV`. On the 46-image val split it scores P 0.962, R 0.959, mAP50 0.971 and mAP50-95 0.614, and every class is above 0.9 in P, R and mAP50. It detects bon o bon in 93% of the frames of the bon o bon clip and all 5 brands on `test.jpg`. The previous `train-v2` scores mAP50 0.970 / mAP50-95 0.599 on the same split, but bon o bon recall is only 0.717 and it detects bon o bon in 38% of the clip's frames. The val images come from the same videos as the train images, so these numbers are optimistic.
+
+The new JSON export (`project-4-at-2026-10-04-...json`) sits beside the old one, so `01-export_dataset.py` needs `--json`. The bon o bon images were drag-and-drop uploads (`/data/upload/...` with an 8-hex prefix), which `resolve_image_file()` strips when matching files in `frame/images/`.

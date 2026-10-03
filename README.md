@@ -272,24 +272,43 @@ close_mosaic = 20      # ปิด Mosaic ใน 20 epoch สุดท้าย
 
 # 📊 Results
 
-โมเดลปัจจุบัน `runs/detect/train-v2` (yolo26s, หยุดที่ epoch 185, `best.pt` มาจาก epoch 125) วัดบน Validation 29 ภาพ
+โมเดลปัจจุบันคือ `runs/detect/train-3` (yolo26s) หยุดเองที่ epoch 148 โดย `best.pt` มาจาก epoch 88 Dataset ประกอบด้วยเฟรมจากวิดีโอ Train เดิม 147 ภาพ และเฟรมจากวิดีโอ bon o bon ที่ถ่ายใหม่ (ระยะใกล้ หลายมุม) อีก 81 ภาพ
 
-| Model | Precision | Recall | mAP50 | mAP50-95 |
+## ผลรายยี่ห้อ (Validation 46 ภาพ)
+
+| Class | Precision | Recall | mAP50 | mAP50-95 |
 | ----- | --------- | ------ | ----- | -------- |
-| `train-v2` (yolo26s) | 0.985 | 0.959 | 0.991 | 0.605 |
-| `train-2` (yolo26n) | - | - | 0.972 | 0.558 |
+| beng-beng | 0.986 | 1.000 | 0.995 | 0.623 |
+| bon o bon | 0.963 | 0.957 | 0.965 | 0.628 |
+| kalpa | 0.900 | 0.955 | 0.922 | 0.645 |
+| milky snack | 1.000 | 0.947 | 0.984 | 0.530 |
+| sumo | 0.961 | 0.938 | 0.991 | 0.645 |
+| **all** | **0.962** | **0.959** | **0.971** | **0.614** |
+
+ทุกยี่ห้อได้ Precision, Recall และ mAP50 เกิน 90%
+
+## เทียบกับโมเดลรุ่นก่อน
+
+| Model | val mAP50 | val mAP50-95 | bon o bon (val) Recall | วิดีโอ bon o bon (เฟรมที่ตรวจเจอ) | `test.jpg` (conf 0.5) |
+| ----- | --------- | ------------ | ---------------------- | --------------------------------- | --------------------- |
+| `train-3` | 0.971 | 0.614 | 0.957 | **93%** (1221/1317) | ครบ 5/5 ยี่ห้อ |
+| `train-v2` | 0.970 | 0.599 | 0.717 | 38% (506/1317) | 4/5 (sumo ได้แค่ 0.33) |
+
+> ทั้งสองรุ่นวัดบน Validation ชุดเดียวกัน 46 ภาพ วิดีโอ bon o bon มี 81 เฟรมที่ใช้ Train อยู่ด้วย ตัวเลข 93% จึงสูงกว่าการใช้งานจริงเล็กน้อย
 
 ![Confusion Matrix](images/confusion_matrix.png)
 
 ![Validation Prediction](images/val_pred.jpg)
 
-> ภาพ Validation มาจากวิดีโอเดียวกับภาพ Train ตัวเลขจึงสูงกว่าการใช้งานจริง ตอนทดสอบกับวิดีโอ bon o bon ที่ถ่ายใหม่ (มุมใกล้และหลายมุม) `train-v2` ตรวจเจอแค่ 38% ของเฟรม จึงเพิ่มเฟรมจากวิดีโอนั้นเข้า Dataset แล้ว Train ใหม่
+![bon o bon](images/bonobon_result.jpg)
+
+> ภาพ Validation มาจากวิดีโอชุดเดียวกับภาพ Train ถ้าจะให้โมเดลใช้งานได้ดีกับฉากจริง ควรถ่ายวิดีโอเพิ่มสำหรับทุกยี่ห้อ บนพื้นหลังและระยะที่หลากหลาย
 
 ---
 
 # 🧪 Test Model
 
-ทั้ง 3 สคริปต์โหลด Weights จาก `runs/detect/train-v2/weights/best.pt` ถ้า Train รอบใหม่ ให้แก้ path นี้ในทั้ง 3 ไฟล์
+ทั้ง 3 สคริปต์โหลด Weights จาก `runs/detect/train-3/weights/best.pt` ถ้า Train รอบใหม่ ให้แก้ path นี้ในทั้ง 3 ไฟล์
 
 ## 1. Test Image
 
@@ -330,7 +349,7 @@ python 05-test-camera.py
 ## ใช้ผ่าน Ultralytics CLI
 
 ```bash
-yolo detect predict model=runs/detect/train-v2/weights/best.pt source=test.jpg conf=0.5
+yolo detect predict model=runs/detect/train-3/weights/best.pt source=test.jpg conf=0.5
 ```
 
 ---

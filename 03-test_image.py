@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 
 # โหลดโมเดลที่ผ่านการฝึก (Trained Model)
-model = YOLO("runs/detect/train-v2/weights/best.pt")
+model = YOLO("runs/detect/train-3/weights/best.pt")
 
 # นำโมเดลไปทดสอบกับรูปภาพ
 results = model.predict(
