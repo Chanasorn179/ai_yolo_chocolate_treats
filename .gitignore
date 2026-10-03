@@ -15,3 +15,6 @@ runs/
 # Python
 __pycache__/
 *.pyc
+
+# Label Studio exports
+*.json
