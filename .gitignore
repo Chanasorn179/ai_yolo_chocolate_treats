@@ -18,3 +18,6 @@ __pycache__/
 
 # Label Studio exports
 *.json
+
+# Claude Code
+CLAUDE.md
