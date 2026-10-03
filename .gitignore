@@ -1,0 +1,17 @@
+# Virtual environment
+env/
+
+# Large media / data (ไม่อัปขึ้น GitHub)
+*.mp4
+*.MOV
+*.mov
+*.avi
+test.jpg
+frame/
+dataset/
+runs/
+*.pt
+
+# Python
+__pycache__/
+*.pyc

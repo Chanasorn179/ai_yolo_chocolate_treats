@@ -1,0 +1,27 @@
+# requirements.txt
+# Python 3.13 + Windows + NVIDIA CUDA 12.8
+# Project: YOLO + Label Studio
+
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+# Keep compatible with PyTorch 2.11
+setuptools==81.0.0
+
+# PyTorch CUDA 12.8
+torch==2.11.0+cu128
+torchvision==0.26.0+cu128
+torchaudio==2.11.0+cu128
+
+# YOLO
+ultralytics==8.4.115
+
+# Annotation
+label-studio==1.23.0
+
+# Common computer-vision / data packages
+opencv-python
+numpy
+pillow
+matplotlib
+PyYAML
+tqdm
