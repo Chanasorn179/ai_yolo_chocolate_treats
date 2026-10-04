@@ -25,3 +25,4 @@ pillow
 matplotlib
 PyYAML
 tqdm
+lap==0.5.13

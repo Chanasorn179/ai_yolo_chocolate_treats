@@ -93,6 +93,7 @@ pip install -r requirements.txt
 | `torch` / `torchvision` / `torchaudio` | 2.11.0 / 0.26.0 / 2.11.0 (CUDA 12.8) |
 | `ultralytics` | 8.4.115 |
 | `label-studio` | 1.23.0 |
+| `lap` | 0.5.13 (ใช้กับ Tracking ใน `05-test-camera.py`) |
 | `opencv-python`, `numpy`, `pillow`, `matplotlib`, `PyYAML`, `tqdm` | ล่าสุด |
 
 > ถ้าใช้ CPU หรือ macOS ให้ลบบรรทัด `--extra-index-url` และ `+cu128` ออกจาก `requirements.txt` แล้วเปลี่ยน `device=0` ในสคริปต์เป็น `device="cpu"` (หรือ `"mps"` บน Mac)
@@ -213,8 +214,10 @@ python 01-export_dataset.py
 สคริปต์จะหาไฟล์ `*.json` ในโฟลเดอร์โปรเจกต์ให้เอง (ต้องมีแค่ **1 ไฟล์**) ถ้ามีหลายไฟล์ให้ระบุเอง
 
 ```bash
-python 01-export_dataset.py --json project-4-at-2026-10-04-01-03-f8f1569f.json
+python 01-export_dataset.py --json project-4-at-2026-10-04-webcam-merged.json
 ```
+
+> `project-4-at-2026-10-04-webcam-merged.json` คือไฟล์ Export จาก Label Studio รวมกับ Label ของภาพ Webcam 28 ภาพ (`frame/webcam_tasks.json` ซึ่ง Import เข้า Label Studio ได้)
 
 | Option | ค่าเริ่มต้น | รายละเอียด |
 | ------ | --------- | --------- |
@@ -230,8 +233,8 @@ python 01-export_dataset.py --json project-4-at-2026-10-04-01-03-f8f1569f.json
 
 ```text
 Classes (5): ['beng-beng', 'bon o bon', 'kalpa', 'milky snack', 'sumo']
-Train: 182 images
-Val:   46 images
+Train: 205 images
+Val:   51 images
 ```
 
 ---
@@ -272,29 +275,49 @@ close_mosaic = 20      # ปิด Mosaic ใน 20 epoch สุดท้าย
 
 # 📊 Results
 
-โมเดลปัจจุบันคือ `runs/detect/train-3` (yolo26s) หยุดเองที่ epoch 148 โดย `best.pt` มาจาก epoch 88 Dataset ประกอบด้วยเฟรมจากวิดีโอ Train เดิม 147 ภาพ และเฟรมจากวิดีโอ bon o bon ที่ถ่ายใหม่ (ระยะใกล้ หลายมุม) อีก 81 ภาพ
+โมเดลปัจจุบันคือ `runs/detect/train-4` (yolo26s) เทรนครบ 200 epoch โดย `best.pt` มาจาก epoch 150 Dataset มีทั้งหมด 256 ภาพ ได้แก่
+- เฟรมจากวิดีโอ Train เดิม 147 ภาพ
+- เฟรมจากวิดีโอ bon o bon (ระยะใกล้ หลายมุม) 81 ภาพ
+- ภาพจากกล้อง Webcam บนโต๊ะไม้ 28 ภาพ (`cam_*.jpg`) ถ่ายเพิ่มเพราะ `train-3` ใช้กับกล้องจริงแล้วทายผิด
 
-## ผลรายยี่ห้อ (Validation 46 ภาพ)
+## ผลรายยี่ห้อ (Validation 51 ภาพ)
 
 | Class | Precision | Recall | mAP50 | mAP50-95 |
 | ----- | --------- | ------ | ----- | -------- |
-| beng-beng | 0.986 | 1.000 | 0.995 | 0.623 |
-| bon o bon | 0.963 | 0.957 | 0.965 | 0.628 |
-| kalpa | 0.900 | 0.955 | 0.922 | 0.645 |
-| milky snack | 1.000 | 0.947 | 0.984 | 0.530 |
-| sumo | 0.961 | 0.938 | 0.991 | 0.645 |
-| **all** | **0.962** | **0.959** | **0.971** | **0.614** |
+| beng-beng | 1.000 | 0.976 | 0.995 | 0.696 |
+| bon o bon | 0.930 | 0.980 | 0.969 | 0.683 |
+| kalpa | 1.000 | 0.983 | 0.995 | 0.770 |
+| milky snack | 0.995 | 0.897 | 0.992 | 0.716 |
+| sumo | 1.000 | 1.000 | 0.995 | 0.777 |
+| **all** | **0.985** | **0.967** | **0.989** | **0.728** |
 
-ทุกยี่ห้อได้ Precision, Recall และ mAP50 เกิน 90%
+## ปัญหาของ `train-3` กับกล้อง Webcam
+
+ภาพ Train ของ `train-3` ถ่ายจากมือถือบนพื้นคาร์บอนสีดำทั้งหมด พอใช้กับกล้อง Webcam บนโต๊ะไม้ที่แสงจ้า โมเดลจึงทายผิด
+
+* ไม่เจอ beng-beng ซองสีเหลืองเลย เพราะใน Dataset มีแต่ซองฟอยล์สีแดง
+* ทาย milky snack เป็น sumo
+* ทายพื้นกระเบื้องและหน้าต่างเป็น kalpa
+* ชื่อยี่ห้อกระพริบสลับไปมาระหว่างเฟรม
+
+ผลเทียบบนภาพ Webcam 27 ภาพที่ไม่ได้ใช้ Train (conf 0.5)
+
+| Model | beng-beng | milky snack | kalpa | sumo | bon o bon | ทายผิดนอกโต๊ะ |
+| ----- | --------- | ----------- | ----- | ---- | --------- | ------------- |
+| `train-4` | **27/27** | **27/27** | 27/27 | 27/27 | 25/27 | **0 กรอบ** |
+| `train-3` | 0/27 | 0/27 (ทายเป็น sumo) | 27/27 | 27/27 | 27/27 | 20 กรอบ |
+
+> ภาพ Webcam ทุกภาพถ่ายฉากเดียวกัน ขนมวางเรียงลำดับเดิม ถ้าสลับตำแหน่งหรือเปลี่ยนแสงอาจยังทายผิดได้ ควรถ่ายเพิ่มด้วยปุ่ม `s` ใน `05-test-camera.py`
 
 ## เทียบกับโมเดลรุ่นก่อน
 
-| Model | val mAP50 | val mAP50-95 | bon o bon (val) Recall | วิดีโอ bon o bon (เฟรมที่ตรวจเจอ) | `test.jpg` (conf 0.5) |
-| ----- | --------- | ------------ | ---------------------- | --------------------------------- | --------------------- |
-| `train-3` | 0.971 | 0.614 | 0.957 | **93%** (1221/1317) | ครบ 5/5 ยี่ห้อ |
-| `train-v2` | 0.970 | 0.599 | 0.717 | 38% (506/1317) | 4/5 (sumo ได้แค่ 0.33) |
+| Model | val mAP50 | val mAP50-95 | วิดีโอ bon o bon (เฟรมที่ตรวจเจอ) | `test.jpg` (conf 0.5) |
+| ----- | --------- | ------------ | --------------------------------- | --------------------- |
+| `train-4` | 0.989 | 0.728 | **93%** (1225/1317) | ครบ 5/5 ยี่ห้อ |
+| `train-3` | 0.971 | 0.614 | 93% (1221/1317) | ครบ 5/5 ยี่ห้อ |
+| `train-v2` | 0.970 | 0.599 | 38% (506/1317) | 4/5 (sumo ได้แค่ 0.33) |
 
-> ทั้งสองรุ่นวัดบน Validation ชุดเดียวกัน 46 ภาพ วิดีโอ bon o bon มี 81 เฟรมที่ใช้ Train อยู่ด้วย ตัวเลข 93% จึงสูงกว่าการใช้งานจริงเล็กน้อย
+> ตัวเลข val ของ `train-4` วัดบน Validation 51 ภาพ (มีภาพ Webcam รวมอยู่ด้วย) ส่วน `train-3` และ `train-v2` วัดบน 46 ภาพเดิม จึงเทียบกันตรง ๆ ไม่ได้ วิดีโอ bon o bon มี 81 เฟรมที่ใช้ Train อยู่ด้วย ตัวเลข 93% จึงสูงกว่าการใช้งานจริงเล็กน้อย
 
 ![Confusion Matrix](images/confusion_matrix.png)
 
@@ -308,7 +331,7 @@ close_mosaic = 20      # ปิด Mosaic ใน 20 epoch สุดท้าย
 
 # 🧪 Test Model
 
-ทั้ง 3 สคริปต์โหลด Weights จาก `runs/detect/train-3/weights/best.pt` ถ้า Train รอบใหม่ ให้แก้ path นี้ในทั้ง 3 ไฟล์
+ทั้ง 3 สคริปต์โหลด Weights จาก `runs/detect/train-4/weights/best.pt` ถ้า Train รอบใหม่ ให้แก้ path นี้ในทั้ง 3 ไฟล์
 
 ## 1. Test Image
 
@@ -344,12 +367,19 @@ video_to_test = "test_chocolate_treats_video.mp4"
 python 05-test-camera.py
 ```
 
-เปิดกล้อง Webcam (DirectShow, 1280x720 MJPG) และตรวจจับแบบ Real-time กด `q` เพื่อออกจากโปรแกรม
+เปิดกล้อง Webcam (DirectShow, 1280x720 MJPG) และตรวจจับแบบ Real-time
+
+| ปุ่ม | การทำงาน |
+| --- | ------- |
+| `q` | ออกจากโปรแกรม |
+| `s` | บันทึกภาพดิบ (ไม่มีกรอบ) ลง `frame/images/cam_XXXX.jpg` เพื่อนำไป Label แล้ว Train เพิ่ม |
+
+สคริปต์ใช้ `model.track()` ให้ขนมชิ้นเดิมได้ id เดิมในทุกเฟรม แล้วโหวต Class จาก 15 เฟรมล่าสุดโดยถ่วงน้ำหนักด้วย confidence ชื่อยี่ห้อจึงไม่กระพริบเมื่อโมเดลทายผิดเป็นบางเฟรม ปรับจำนวนเฟรมได้ที่ `VOTE_FRAMES` (การ Tracking ต้องใช้แพ็กเกจ `lap` ซึ่งอยู่ใน `requirements.txt` แล้ว)
 
 ## ใช้ผ่าน Ultralytics CLI
 
 ```bash
-yolo detect predict model=runs/detect/train-3/weights/best.pt source=test.jpg conf=0.5
+yolo detect predict model=runs/detect/train-4/weights/best.pt source=test.jpg conf=0.5
 ```
 
 ---
