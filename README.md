@@ -2,6 +2,11 @@
 
 โปรเจกต์ตรวจจับและจำแนกขนมช็อกโกแลต 5 ยี่ห้อด้วย **YOLO26** จากภาพ วิดีโอ และกล้องแบบ Real-time โดยใช้ **Ultralytics YOLO** ร่วมกับ **Label Studio** สำหรับสร้าง Dataset และตีกรอบ Bounding Box
 
+drive สำหรับโหลด Video Dataset, Test image และ Video test : </br>
+https://drive.google.com/drive/folders/1puIZPvskD3vUeP-LkbaAaRYaOrDiBoIX?usp=sharing
+
+---
+
 | Class | ยี่ห้อ |
 | ----- | ----- |
 | 0 | `beng-beng` |
