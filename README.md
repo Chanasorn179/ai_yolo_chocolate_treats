@@ -33,11 +33,14 @@ AI_YOLO_Chocolate_treats/
 │   ├── labels/{train,val}/
 │   ├── classes.txt
 │   └── data.yaml
+├── dataset_sam/                  # สร้างโดย 01b-refine_labels_sam.py (โครงสร้างเดียวกับ dataset/)
 ├── runs/detect/                  # ผลการ Train และ Predict ของ Ultralytics
 ├── project-4-at-...json          # ไฟล์ Export จาก Label Studio
 ├── yolo26s.pt                    # Pre-trained model ที่ใช้เริ่ม Train
+├── sam2.1_t.pt                   # SAM2 ที่ใช้ปรับกรอบ (ดาวน์โหลดเองตอนรันครั้งแรก)
 │
 ├── 01-export_dataset.py          # แปลง Label Studio JSON -> YOLO Dataset
+├── 01b-refine_labels_sam.py      # ปรับกรอบ Label ให้ครอบซองพอดีด้วย SAM
 ├── 02-train.py                   # Train โมเดล
 ├── 03-test_image.py              # ทดสอบกับรูปภาพ
 ├── 04-test_video.py              # ทดสอบกับวิดีโอ
@@ -244,11 +247,45 @@ Val:   51 images
 
 ---
 
+# ✂️ ปรับกรอบ Label ด้วย SAM
+
+```bash
+python 01b-refine_labels_sam.py
+```
+
+กรอบที่ตีด้วยมือใน Label Studio ไม่สม่ำเสมอ บางกรอบตัดปลายซองที่เป็นรอยหยักออก บางกรอบครอบทั้งซอง โมเดลจึงเรียนรู้ขอบกรอบที่แน่นอนไม่ได้ และ mAP50-95 ติดอยู่ที่ 0.728 ทั้งที่ mAP50 ได้ 0.989
+
+สคริปต์นี้ขยายกรอบเดิมออกด้านละ 12% ใช้เป็น Prompt ให้ SAM2 (`sam2.1_t.pt`) ตัดรูปร่างซอง แล้วใช้กรอบที่ครอบ Mask เป็น Label ใหม่ ถ้ากรอบใหม่ต่างจากเดิมมากเกินไป จะคงกรอบเดิมไว้ ผลจะถูกเขียนไปที่ `dataset_sam/` โดยไม่แก้ `dataset/` และแบ่ง Train/Val ชุดเดิม
+
+```text
+Boxes: 813, refined by SAM: 771, kept original: 42
+```
+
+| Option | ค่าเริ่มต้น | รายละเอียด |
+| ------ | --------- | --------- |
+| `--input-dir` | `dataset` | Dataset ที่ได้จาก `01-export_dataset.py` |
+| `--output-dir` | `dataset_sam` | Dataset ที่จะสร้าง (ห้ามซ้ำกับ `--input-dir`) |
+| `--model` | `sam2.1_t.pt` | Weights ของ SAM (Ultralytics ดาวน์โหลดให้ครั้งแรก) |
+| `--pad` | `0.12` | ขยายกรอบ Prompt ออกด้านละกี่เท่าของขนาดกรอบ |
+| `--min-iou` | `0.6` | ถ้ากรอบใหม่ซ้อนกับกรอบเดิมน้อยกว่านี้ ใช้กรอบเดิม |
+| `--min-area-ratio` / `--max-area-ratio` | `0.6` / `1.8` | ถ้าพื้นที่กรอบใหม่ต่างจากเดิมเกินช่วงนี้ ใช้กรอบเดิม |
+| `--device` | `0` | GPU ที่ใช้ |
+
+> ต้องรัน `01b-refine_labels_sam.py` ใหม่ทุกครั้งหลังรัน `01-export_dataset.py` และเหมือน `01` คือสคริปต์จะ **ลบ** `dataset_sam/images` และ `dataset_sam/labels` เดิมก่อนสร้างใหม่ ถ้าเปิดโปรแกรมอื่นที่ใช้ VRAM ไว้ (เช่นเกมหรือ Wallpaper Engine) จนหน่วยความจำการ์ดจอไม่พอ ทั้งสคริปต์นี้และการ Train จะช้าลงหลายสิบเท่า
+
+![กรอบเดิม (เขียว) เทียบกับกรอบจาก SAM (น้ำเงิน)](images/sam_labels.jpg)
+
+> กรอบเดิมเป็นสีเขียว กรอบจาก SAM เป็นสีน้ำเงิน กรอบจาก SAM ยังไม่ได้ตรวจทานด้วยคน บางกรอบอาจยังตัดปลายซองที่วางเอียง
+
+---
+
 # 🧠 Train YOLO26
 
 ```bash
 python 02-train.py
 ```
+
+Train จาก `dataset_sam/data.yaml` (กรอบที่ปรับด้วย SAM)
 
 | ค่า | ตั้งไว้ | หมายเหตุ |
 | --- | ------ | ------- |
@@ -262,15 +299,17 @@ python 02-train.py
 Data Augmentation เพิ่มเติม เพราะวิดีโอ Train ถ่ายจากมุมเดียว
 
 ```text
-degrees      = 15.0    # หมุนภาพ ±15 องศา
-shear        = 5.0     # บิดภาพเฉียง
-perspective  = 0.001   # จำลองมุมกล้องที่ต่างออกไป
+degrees      = 5.0     # หมุนภาพ ±5 องศา (train-4 ใช้ ±15)
+shear        = 0.0     # ปิดการบิดภาพเฉียง (train-4 ใช้ 5.0)
+perspective  = 0.0005  # จำลองมุมกล้องที่ต่างออกไป (train-4 ใช้ 0.001)
 fliplr       = 0.5     # พลิกซ้าย-ขวา
 flipud       = 0.0     # ไม่พลิกบน-ล่าง
 mosaic       = 1.0
 mixup        = 0.1
 close_mosaic = 20      # ปิด Mosaic ใน 20 epoch สุดท้าย
 ```
+
+ลดการหมุนและปิดการบิดภาพ เพราะเมื่อหมุนภาพ Ultralytics ต้องหากรอบตรงใหม่ที่ครอบมุมทั้ง 4 ของกรอบเดิม กรอบที่ได้จึงใหญ่กว่าซองจริง และสอนให้โมเดลตีกรอบหลวม
 
 ผลแต่ละรอบจะถูกบันทึกไว้ที่ `runs/detect/train-N/` โดย Weights ที่ดีที่สุดอยู่ที่ `runs/detect/train-N/weights/best.pt`
 
@@ -280,21 +319,36 @@ close_mosaic = 20      # ปิด Mosaic ใน 20 epoch สุดท้าย
 
 # 📊 Results
 
-โมเดลปัจจุบันคือ `runs/detect/train-4` (yolo26s) เทรนครบ 200 epoch โดย `best.pt` มาจาก epoch 150 Dataset มีทั้งหมด 256 ภาพ ได้แก่
+โมเดลปัจจุบันคือ `runs/detect/train-5` (yolo26s) เทรนบน `dataset_sam/` ครบ 200 epoch โดย `best.pt` มาจาก epoch 199 Dataset มีทั้งหมด 256 ภาพ ได้แก่
 - เฟรมจากวิดีโอ Train เดิม 147 ภาพ
 - เฟรมจากวิดีโอ bon o bon (ระยะใกล้ หลายมุม) 81 ภาพ
 - ภาพจากกล้อง Webcam บนโต๊ะไม้ 28 ภาพ (`cam_*.jpg`) ถ่ายเพิ่มเพราะ `train-3` ใช้กับกล้องจริงแล้วทายผิด
 
-## ผลรายยี่ห้อ (Validation 51 ภาพ)
+## ผลรายยี่ห้อ (Validation 51 ภาพ, Label จาก SAM)
 
-| Class | Precision | Recall | mAP50 | mAP50-95 |
-| ----- | --------- | ------ | ----- | -------- |
-| beng-beng | 1.000 | 0.976 | 0.995 | 0.696 |
-| bon o bon | 0.930 | 0.980 | 0.969 | 0.683 |
-| kalpa | 1.000 | 0.983 | 0.995 | 0.770 |
-| milky snack | 0.995 | 0.897 | 0.992 | 0.716 |
-| sumo | 1.000 | 1.000 | 0.995 | 0.777 |
-| **all** | **0.985** | **0.967** | **0.989** | **0.728** |
+| Class | Precision | Recall | mAP50 | mAP50-95 | mAP50-95 ของ `train-4` |
+| ----- | --------- | ------ | ----- | -------- | ---------------------- |
+| beng-beng | 1.000 | 0.975 | 0.995 | 0.913 | 0.696 |
+| bon o bon | 1.000 | 0.873 | 0.965 | 0.790 | 0.683 |
+| kalpa | 0.991 | 1.000 | 0.995 | 0.873 | 0.770 |
+| milky snack | 1.000 | 0.963 | 0.992 | 0.896 | 0.716 |
+| sumo | 0.956 | 1.000 | 0.995 | 0.874 | 0.777 |
+| **all** | **0.989** | **0.962** | **0.988** | **0.869** | 0.728 |
+
+## ผลของการปรับกรอบด้วย SAM
+
+`train-4` วัดกับ Label เดิม ส่วน `train-5` วัดกับ Label จาก SAM จึงเทียบ 0.728 กับ 0.869 ตรง ๆ ไม่ได้ ตารางนี้วัด mAP50-95 ของทั้งสองโมเดลกับ Label ทั้งสองชุดบน Validation 51 ภาพเดียวกัน
+
+| Model | วัดกับ Label เดิม | วัดกับ Label จาก SAM |
+| ----- | ---------------- | ------------------- |
+| `train-4` | **0.727** | 0.583 |
+| `train-5` | 0.554 | **0.869** |
+
+แต่ละโมเดลได้คะแนนสูงเฉพาะกับ Label ชุดที่ใช้ Train แปลว่าส่วนหนึ่งของคะแนนที่เพิ่มขึ้นมาจากกรอบที่ใช้วัดเปลี่ยนไป แต่ `train-5` ตีกรอบได้ตรงกับ Label ของตัวเองมากกว่าที่ `train-4` ทำได้กับ Label เดิมชัดเจน แสดงว่า Label จาก SAM สม่ำเสมอกว่า เมื่อดูด้วยตาบน `test.jpg` และภาพ Webcam กรอบของ `train-5` แนบซองและครอบปลายซองได้ครบกว่า
+
+ข้อแลกเปลี่ยนคือ `train-5` เจอ bon o bon น้อยลง ทั้งบนภาพ Webcam และวิดีโอ bon o bon (ดูตารางด้านล่าง)
+
+> `train-5` ถูก Train ก่อนแก้ bug ใน `01b-refine_labels_sam.py` ซึ่งทำให้ 2 ภาพ bon o bon ในชุด Train (`bonobon_0021`, `bonobon_0079`) ไม่มี Label `dataset_sam/` ปัจจุบันแก้แล้ว ส่วนชุด Validation ไม่ได้รับผลกระทบ
 
 ## ปัญหาของ `train-3` กับกล้อง Webcam
 
@@ -305,12 +359,15 @@ close_mosaic = 20      # ปิด Mosaic ใน 20 epoch สุดท้าย
 * ทายพื้นกระเบื้องและหน้าต่างเป็น kalpa
 * ชื่อยี่ห้อกระพริบสลับไปมาระหว่างเฟรม
 
-ผลเทียบบนภาพ Webcam 27 ภาพที่ไม่ได้ใช้ Train (conf 0.5)
+ผลเทียบบนภาพ Webcam ที่ไม่ได้ใช้ Train (conf 0.5)
 
-| Model | beng-beng | milky snack | kalpa | sumo | bon o bon | ทายผิดนอกโต๊ะ |
-| ----- | --------- | ----------- | ----- | ---- | --------- | ------------- |
-| `train-4` | **27/27** | **27/27** | 27/27 | 27/27 | 25/27 | **0 กรอบ** |
-| `train-3` | 0/27 | 0/27 (ทายเป็น sumo) | 27/27 | 27/27 | 27/27 | 20 กรอบ |
+| Model | ภาพ | beng-beng | milky snack | kalpa | sumo | bon o bon | ทายผิดนอกโต๊ะ |
+| ----- | --- | --------- | ----------- | ----- | ---- | --------- | ------------- |
+| `train-5` | 31 | **31/31** | **31/31** | 31/31 | 31/31 | 23/31 | **0 กรอบ** |
+| `train-4` | 31 | **31/31** | **31/31** | 31/31 | 31/31 | **28/31** | **0 กรอบ** |
+| `train-3` | 27 | 0/27 | 0/27 (ทายเป็น sumo) | 27/27 | 27/27 | 27/27 | 20 กรอบ |
+
+> `train-4` และ `train-5` ทดสอบบน `cam_*.jpg` ทั้ง 31 ภาพที่ไม่อยู่ใน Dataset ส่วน `train-3` เป็นผลเดิมบน 27 ภาพ
 
 > ภาพ Webcam ทุกภาพถ่ายฉากเดียวกัน ขนมวางเรียงลำดับเดิม ถ้าสลับตำแหน่งหรือเปลี่ยนแสงอาจยังทายผิดได้ ควรถ่ายเพิ่มด้วยปุ่ม `s` ใน `05-test-camera.py`
 
@@ -318,11 +375,12 @@ close_mosaic = 20      # ปิด Mosaic ใน 20 epoch สุดท้าย
 
 | Model | val mAP50 | val mAP50-95 | วิดีโอ bon o bon (เฟรมที่ตรวจเจอ) | `test.jpg` (conf 0.5) |
 | ----- | --------- | ------------ | --------------------------------- | --------------------- |
+| `train-5` | 0.988 | **0.869** | 89% (1172/1317) | ครบ 5/5 ยี่ห้อ |
 | `train-4` | 0.989 | 0.728 | **93%** (1225/1317) | ครบ 5/5 ยี่ห้อ |
 | `train-3` | 0.971 | 0.614 | 93% (1221/1317) | ครบ 5/5 ยี่ห้อ |
 | `train-v2` | 0.970 | 0.599 | 38% (506/1317) | 4/5 (sumo ได้แค่ 0.33) |
 
-> ตัวเลข val ของ `train-4` วัดบน Validation 51 ภาพ (มีภาพ Webcam รวมอยู่ด้วย) ส่วน `train-3` และ `train-v2` วัดบน 46 ภาพเดิม จึงเทียบกันตรง ๆ ไม่ได้ วิดีโอ bon o bon มี 81 เฟรมที่ใช้ Train อยู่ด้วย ตัวเลข 93% จึงสูงกว่าการใช้งานจริงเล็กน้อย
+> ตัวเลข val ของ `train-5` วัดกับ Label จาก SAM ส่วน `train-4` วัดกับ Label เดิมบน 51 ภาพเดียวกัน (มีภาพ Webcam รวมอยู่ด้วย) และ `train-3` กับ `train-v2` วัดบน 46 ภาพเดิม จึงเทียบกันตรง ๆ ไม่ได้ วิดีโอ bon o bon มี 81 เฟรมที่ใช้ Train อยู่ด้วย ตัวเลขจากวิดีโอนี้จึงสูงกว่าการใช้งานจริงเล็กน้อย
 
 ![Confusion Matrix](images/confusion_matrix.png)
 
@@ -336,7 +394,7 @@ close_mosaic = 20      # ปิด Mosaic ใน 20 epoch สุดท้าย
 
 # 🧪 Test Model
 
-ทั้ง 3 สคริปต์โหลด Weights จาก `runs/detect/train-4/weights/best.pt` ถ้า Train รอบใหม่ ให้แก้ path นี้ในทั้ง 3 ไฟล์
+ทั้ง 3 สคริปต์โหลด Weights จาก `runs/detect/train-5/weights/best.pt` ถ้า Train รอบใหม่ ให้แก้ path นี้ในทั้ง 3 ไฟล์
 
 ## 1. Test Image
 
@@ -384,7 +442,7 @@ python 05-test-camera.py
 ## ใช้ผ่าน Ultralytics CLI
 
 ```bash
-yolo detect predict model=runs/detect/train-4/weights/best.pt source=test.jpg conf=0.5
+yolo detect predict model=runs/detect/train-5/weights/best.pt source=test.jpg conf=0.5
 ```
 
 ---
@@ -393,6 +451,7 @@ yolo detect predict model=runs/detect/train-4/weights/best.pt source=test.jpg co
 
 * รันทุกสคริปต์จากโฟลเดอร์โปรเจกต์ เพราะ path ทั้งหมดเป็นแบบ relative
 * `01-export_dataset.py` ต้องมีไฟล์ JSON แค่ไฟล์เดียวในโฟลเดอร์ หรือระบุด้วย `--json`
+* หลังรัน `01-export_dataset.py` ต้องรัน `01b-refine_labels_sam.py` ต่อทุกครั้ง เพราะ `02-train.py` Train จาก `dataset_sam/`
 * รูปใน `frame/images/` ต้องมีชื่อตรงกับรูปใน JSON
 * ถ้าเปลี่ยนรายชื่อ Label ต้อง Train ใหม่ทั้งหมด เพราะ Class ID อาจเลื่อน
 * Training และ Camera ตั้ง `device=0` (GPU) ไว้ ถ้าไม่มี GPU ให้เปลี่ยนเป็น `device="cpu"`

@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 
 # โหลดโมเดลที่ผ่านการฝึก (Trained Model)
-model = YOLO("runs/detect/train-4/weights/best.pt")
+model = YOLO("runs/detect/train-5/weights/best.pt")
 
 # กำหนดชื่อไฟล์วิดีโอที่ต้องการนำมาทดสอบ
 video_to_test = "test_chocolate_treats_video.mp4"

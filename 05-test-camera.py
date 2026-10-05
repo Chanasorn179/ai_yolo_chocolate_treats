@@ -14,7 +14,7 @@ SAVE_DIR = "frame/images"
 
 def main():
     # โหลดโมเดลที่ผ่านการฝึก (Trained Model)
-    model = YOLO("runs/detect/train-4/weights/best.pt")
+    model = YOLO("runs/detect/train-5/weights/best.pt")
     names = model.names
 
     # เปิดใช้งานกล้องเว็บแคม

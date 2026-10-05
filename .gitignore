@@ -9,6 +9,7 @@ env/
 test.jpg
 frame/
 dataset/
+dataset_sam/
 runs/
 *.pt
 
